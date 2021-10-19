@@ -1,0 +1,101 @@
+Intel3:
+	RegExMatch(srcIP,"P)(^192\.168\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])$)|(^172\.([1][6-9]|[2][0-9]|[3][0-1])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])$)|(^10\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])$)",srcIPpriv)
+	if(srcIP = "--")
+		srcIPpriv = 99
+	if(srcIPpriv = 0){
+		Threatstream(1)
+		Return
+	}
+	msgbox I don't think %srcIP% is a public IP. So I'm not going to search for it :3
+	Return
+Intel4:
+	RegExMatch(dstIP,"P)(^192\.168\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])$)|(^172\.([1][6-9]|[2][0-9]|[3][0-1])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])$)|(^10\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])\.([0-9]|[0-9][0-9]|[0-2][0-5][0-5])$)", dstIPpriv)
+	if(dstIP = "--")
+		dstIPpriv = 99
+	if(dstIPpriv = 0){
+		Threatstream(2)
+		Return
+	}
+	msgbox I don't think %dstIP% is a public IP. So I'm not going to search for it :3
+	Return
+
+
+Threatstream(pType){
+	global
+	IfWinExist, MainGui
+		WinClose	
+
+
+	if(pType = 1){
+		if(srcIP != "--"){
+			TSbadIP := srcIP
+		}
+		else
+			msgbox No Source IP found.
+	}
+	
+	if(pType = 2){
+		if(dstIP != "--"){
+			TSbadIP := dstIP
+		}
+		else
+			msgbox No Destination IP found.
+	}
+	
+	ReqURL = https`://api.threatstream.com/api/v2/intelligence/?username=&api_key=&ip=%TSbadIP%
+	WinHTTP := ComObjCreate("WinHTTP.WinHttpRequest.5.1")
+	WinHTTP.Open("GET", reqURL, 0)
+	;WinHTTP.SetCredentials("<api_key>", "x", 0)
+	WinHTTP.SetRequestHeader("Content-Type", "text/json")
+	WinHTTP.Send()
+	TSresult := WinHTTP.ResponseText
+	Status := WinHTTP.Status
+
+	msgbox % "status: " Status "`n`nresult: " TSresult
+	
+	reqURL = http`://whois.arin.net/rest/ip/%TSbadIP%?showDetails=true
+	WinHTTP.Open("GET", reqURL, 0)
+	WinHTTP.SetRequestHeader("Content-Type", "text/xml")
+	WinHTTP.Send()
+	ARINresult := WinHTTP.ResponseText
+	
+	
+	
+	ARINxml := ComObjCreate("MSXML2.DOMDocument.6.0")
+	ARINxml.async := false
+	failED := ARINxml.loadXML(ARINresult)
+	if(ARINxml.parseError.errorCode != 0){
+		myErr := ARINxml.parseError
+		msgbox %myErr%
+	
+	}
+	msgbox %failED%
+	
+	
+
+	ARINxmlNode := ARINxml.selectSingleNode("//net")
+	ARINname := ARINxmlNode.text
+	MsgBox %ARINname%
+
+	ARINxmlNode := ARINxml.selectSingleNode("//current_observation/temp_f")
+	temperature := ARINxmlNode.text
+	MsgBox %temperature%
+
+	
+	
+	msgbox %ARINresult%
+	
+
+	if (pType = 1){
+		srcQuickTS = =========================================================================================== `n -----------------ThreatStream - Blank output likely means there is no active entry-------------- `n =========================================================================================== `n %TSresult% `n `n `n =========================================================================================== `n -------------------------------------Arin Whois Lookup------------------------------------- `n =========================================================================================== `n %ARINresult%
+	}
+	
+	if (pType = 2){
+		dstQuickTS := TSresult
+	}
+	
+	
+	
+	
+	mainGui()
+}
